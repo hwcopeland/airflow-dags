@@ -31,7 +31,7 @@ def autodock():
 
     jupyter_user_pvc = f"claim-{params['jupyter_user']}"
     VOLUME_KEY_USER = f"volume-user-{params['jupyter_user']}"
-    MOUNT_PATH_USER = '/user-data'
+    MOUNT_PATH_USER = f"/home/{params['jupyter_user']}"
 
     # Mount the Jupyter user's PVC (from the same namespace)
     volume_user = k8s.V1Volume(
