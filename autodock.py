@@ -10,11 +10,10 @@ PVC_NAME = 'pvc-autodock'
 MOUNT_PATH_AUTODOCK = '/data'
 VOLUME_KEY_AUTODOCK = 'volume-autodock'
 
-# Params to be passed when triggering the DAG
 params = {
     'pdbid': '8DZ2',
-    'ligand_db': 'ChEBI_complete',  # The ligand database file (without .sdf extension)
-    'jupyter_user': 'jovyan',  # Jupyter username
+    'ligand_db': 'ChEBI_complete',
+    'jupyter_user': 'jovyan',
     'ligands_chunk_size': 100000,
 }
 
@@ -24,38 +23,33 @@ namespace = conf.get('kubernetes_executor', 'NAMESPACE')
 def autodock():
     import os.path
 
-    # Volume for autodock PVC (destination)
     volume_autodock = k8s.V1Volume(
         name=VOLUME_KEY_AUTODOCK,
         persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(claim_name=PVC_NAME),
     )
     volume_mount_autodock = k8s.V1VolumeMount(mount_path=MOUNT_PATH_AUTODOCK, name=VOLUME_KEY_AUTODOCK)
 
-    # Volume for the user's PVC (dynamically based on the Jupyter username)
-    jupyter_user_pvc = f"claim-{params['jupyter_user']}"  # Example: claim-jovyan
+    jupyter_user_pvc = f"claim-{params['jupyter_user']}"
     VOLUME_KEY_USER = f"volume-user-{params['jupyter_user']}"
     MOUNT_PATH_USER = '/user-data'
 
-    # Ensure we refer to the correct namespace for the user's PVC (in this case `jupyterhub`)
     volume_user = k8s.V1Volume(
         name=VOLUME_KEY_USER,
         persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(claim_name=jupyter_user_pvc, claim_namespace='jupyterhub'),
     )
     volume_mount_user = k8s.V1VolumeMount(mount_path=MOUNT_PATH_USER, name=VOLUME_KEY_USER)
 
-    # Define the container and pod specs
     container = k8s.V1Container(
         name='autodock-container',
         image=IMAGE_NAME,
         working_dir=MOUNT_PATH_AUTODOCK,
-        volume_mounts=[volume_mount_autodock, volume_mount_user],  # Mount both PVCs
+        volume_mounts=[volume_mount_autodock, volume_mount_user],
         image_pull_policy='Always',
     )
 
     pod_spec = k8s.V1PodSpec(containers=[container], volumes=[volume_autodock, volume_user])
     full_pod_spec = k8s.V1Pod(spec=pod_spec)
 
-    # Task to copy ligand_db from user's PVC to the autodock PVC
     copy_ligand_db = KubernetesPodOperator(
         task_id='copy_ligand_db',
         image='alpine',
@@ -70,14 +64,12 @@ def autodock():
         get_logs=True,
     )
 
-    # Task 1a - Prepare the protein
     prepare_receptor = KubernetesPodOperator(
         task_id='prepare_receptor',
         full_pod_spec=full_pod_spec,
         cmds=['/autodock/scripts/1a_fetch_prepare_protein.sh', '{{ params.pdbid }}'],
     )
 
-    # Task to split the SDF file
     split_sdf = KubernetesPodOperator(
         task_id='split_sdf',
         full_pod_spec=full_pod_spec,
@@ -86,7 +78,6 @@ def autodock():
         do_xcom_push=True,
     )
 
-    # Post-processing task
     postprocessing = KubernetesPodOperator(
         task_id='postprocessing',
         full_pod_spec=full_pod_spec,
@@ -109,11 +100,11 @@ def autodock():
 
         perform_docking = KubernetesPodOperator(
             task_id='perform_docking',
-            full_pod_spec=full_pod_spec,
+            full_pod_spec=full_pod_spec_gpu,
             container_resources=k8s.V1ResourceRequirements(
                 limits={"nvidia.com/gpu": "1"}
             ),
-            pool='gpu_pool',
+            # Remove the pool reference here
             cmds=['/autodock/scripts/2_docking.sh'],
             arguments=['{{ params.pdbid }}', batch_label],
             get_logs=True,
@@ -121,13 +112,11 @@ def autodock():
 
         [prepare_ligands] >> perform_docking
 
-    # Copy ligand DB file to PVC before other tasks
     copy_ligand_db >> prepare_receptor >> split_sdf
 
     batch_labels = get_batch_labels('sweetlead', split_sdf.output)
     docking_tasks = docking.expand(batch_label=batch_labels)
 
-    # Add post-processing after docking tasks
     docking_tasks >> postprocessing
 
 
