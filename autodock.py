@@ -33,9 +33,10 @@ def autodock():
     VOLUME_KEY_USER = f"volume-user-{params['jupyter_user']}"
     MOUNT_PATH_USER = '/user-data'
 
+    # Mount the Jupyter user's PVC (from the same namespace)
     volume_user = k8s.V1Volume(
         name=VOLUME_KEY_USER,
-        persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(claim_name=jupyter_user_pvc, claim_namespace='jupyterhub'),
+        persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(claim_name=jupyter_user_pvc),  # Remove claim_namespace
     )
     volume_mount_user = k8s.V1VolumeMount(mount_path=MOUNT_PATH_USER, name=VOLUME_KEY_USER)
 
@@ -50,6 +51,7 @@ def autodock():
     pod_spec = k8s.V1PodSpec(containers=[container], volumes=[volume_autodock, volume_user])
     full_pod_spec = k8s.V1Pod(spec=pod_spec)
 
+    # Copy ligand_db from user's PVC to the autodock PVC
     copy_ligand_db = KubernetesPodOperator(
         task_id='copy_ligand_db',
         image='alpine',
@@ -60,7 +62,7 @@ def autodock():
         name='copy-ligand-db',
         volumes=[volume_autodock, volume_user],
         volume_mounts=[volume_mount_autodock, volume_mount_user],
-        namespace=namespace,
+        namespace=namespace,  # Ensure this pod runs in the correct namespace
         get_logs=True,
     )
 
@@ -100,11 +102,10 @@ def autodock():
 
         perform_docking = KubernetesPodOperator(
             task_id='perform_docking',
-            full_pod_spec=full_pod_spec_gpu,
+            full_pod_spec=full_pod_spec,
             container_resources=k8s.V1ResourceRequirements(
                 limits={"nvidia.com/gpu": "1"}
             ),
-            # Remove the pool reference here
             cmds=['/autodock/scripts/2_docking.sh'],
             arguments=['{{ params.pdbid }}', batch_label],
             get_logs=True,
