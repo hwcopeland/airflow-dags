@@ -36,13 +36,14 @@ def autodock():
     VOLUME_KEY_USER = f"volume-user-{params['jupyter_user']}"
     MOUNT_PATH_USER = '/user-data'
 
+    # Ensure we refer to the correct namespace for the user's PVC (in this case `jupyterhub`)
     volume_user = k8s.V1Volume(
         name=VOLUME_KEY_USER,
-        persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(claim_name=jupyter_user_pvc),
+        persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(claim_name=jupyter_user_pvc, claim_namespace='jupyterhub'),
     )
     volume_mount_user = k8s.V1VolumeMount(mount_path=MOUNT_PATH_USER, name=VOLUME_KEY_USER)
 
-    # define a generic container, which can be used for all tasks
+    # Define the container and pod specs
     container = k8s.V1Container(
         name='autodock-container',
         image=IMAGE_NAME,
