@@ -115,7 +115,7 @@ def autodock():
 
     copy_ligand_db >> prepare_receptor >> split_sdf
 
-    batch_labels = get_batch_labels('sweetlead', split_sdf.output)
+    batch_labels = get_batch_labels({{ params.ligand_db }}, split_sdf.output)
     docking_tasks = docking.expand(batch_label=batch_labels)
 
     docking_tasks >> postprocessing
