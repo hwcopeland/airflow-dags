@@ -9,7 +9,7 @@ from datetime import datetime
 
 from kubernetes.client import models as k8s
 
-IMAGE_NAME = 'hwcopeland/autodock-all:1.0.0' # CHANGE ME
+IMAGE_NAME = 'hwcopeland/autodock-all:latest' # CHANGE ME
 PVC_NAME = 'pvc-autodock' # CHANGE ME
 
 MOUNT_PATH = '/data'
@@ -17,14 +17,14 @@ VOLUME_KEY  = 'volume-autodock'
 
 params = {
     # PDBID of the receptor, which will be used to fetch protein data from PDB
-    'pdbid': '7cpa',
+    'pdbid': '8DZ2',
 
     # label of the ligand database, the filename for
     # the corresponding database must be '{db_label}.sdf'
-    'ligand_db': 'sweetlead',
+    'ligand_db': 'ChEBI_complete',
 
     # number of ligands per chunk
-    'ligands_chunk_size': 1000000,
+    'ligands_chunk_size': 100000,
 }
 namespace = conf.get('kubernetes_executor', 'NAMESPACE')
 
