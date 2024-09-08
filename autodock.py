@@ -104,7 +104,7 @@ def autodock():
             task_id='perform_docking',
             full_pod_spec=full_pod_spec,
             cmds=['/autodock/scripts/2_docking.sh'],
-            arguments=['{{ params.pdbid }}', batch_label],
+            arguments=['{{ params.pdbid }}', batch_label, 1],
             get_logs=True,
             is_delete_operator_pod=False,
             reattach_on_restart=True,
