@@ -106,8 +106,6 @@ def autodock():
             cmds=['/autodock/scripts/2_docking.sh'],
             arguments=['{{ params.pdbid }}', batch_label, 1],
             get_logs=True,
-            is_delete_operator_pod=False,
-            reattach_on_restart=True,
         )
 
         [prepare_ligands] >> perform_docking
