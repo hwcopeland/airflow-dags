@@ -107,7 +107,7 @@ def autodock():
             arguments=['{{ params.pdbid }}', batch_label],
             get_logs=True,
             is_delete_operator_pod=False,
-            reattach_onrestart=True,
+            reattach_on_restart=True,
         )
 
         [prepare_ligands] >> perform_docking
