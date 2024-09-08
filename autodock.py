@@ -14,7 +14,7 @@ params = {
     'pdbid': '8DZ2',
     'ligand_db': 'ChEBI_complete',
     'jupyter_user': 'jovyan',
-    'ligands_chunk_size': 100000,
+    'ligands_chunk_size': 10000,
 }
 
 namespace = conf.get('kubernetes_executor', 'NAMESPACE')
