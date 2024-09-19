@@ -105,7 +105,7 @@ def autodock():
             task_id='perform_docking',
             full_pod_spec=full_pod_spec,
             cmds=['python3','/autodock/scripts/dockingv2.sh'],
-            arguments=['{{ params.pdbid }}', batch_label],
+            arguments=['{{ params.pdbid }}', batch_label], #This needs to be fixed <<<<<<<<<<< here here! <<<<<<<<<<<<<<<<<<<<<<<<< please fix me! <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<FIX!!!
             get_logs=True,
         )
 
