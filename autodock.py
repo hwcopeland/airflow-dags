@@ -70,7 +70,7 @@ def autodock():
     prepare_receptor = KubernetesPodOperator(
         task_id='prepare_receptor',
         full_pod_spec=full_pod_spec,
-        cmds=['/python3','autodock/scripts/proteinprepv2.py','--protein_id', '{{ params.pdbid }}',' --ligand_id','{{ params.native_ligand}}'],
+        cmds=['python3','/autodock/scripts/proteinprepv2.py','--protein_id', '{{ params.pdbid }}',' --ligand_id','{{ params.native_ligand}}'],
     )
 
     split_sdf = KubernetesPodOperator(
