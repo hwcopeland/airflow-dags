@@ -5,15 +5,16 @@ from airflow.configuration import conf
 from kubernetes.client import models as k8s
 from datetime import datetime
 
-IMAGE_NAME = 'hwcopeland/autodock-all:latest'
+IMAGE_NAME = 'hwcopeland/auto-docker:latest'
 PVC_NAME = 'pvc-autodock'
 MOUNT_PATH_AUTODOCK = '/data'
 VOLUME_KEY_AUTODOCK = 'volume-autodock'
 
 params = {
-    'pdbid': '8DZ2',
+    'pdbid': '7jrn',
     'ligand_db': 'ChEBI_complete',
     'jupyter_user': 'jovyan',
+    'native_ligand': 'TTT',
     'ligands_chunk_size': 10000,
 }
 
@@ -69,7 +70,7 @@ def autodock():
     prepare_receptor = KubernetesPodOperator(
         task_id='prepare_receptor',
         full_pod_spec=full_pod_spec,
-        cmds=['/autodock/scripts/1a_fetch_prepare_protein.sh', '{{ params.pdbid }}'],
+        cmds=['/autodock/scripts/proteinprepv2.py --protein_id', '{{ params.pdbid }}',' --ligand_id','{{ params.native_ligand}}'],
     )
 
     split_sdf = KubernetesPodOperator(
@@ -96,15 +97,15 @@ def autodock():
             task_id='prepare_ligands',
             full_pod_spec=full_pod_spec,
             get_logs=True,
-            cmds=['/autodock/scripts/1b_prepare_ligands.sh'],
-            arguments=['{{ params.pdbid }}', batch_label],
+            cmds=['/autodock/scripts/ligandprepv2.py'],
+            arguments=['{{ params.native_ligand }}', batch_label],
         )
 
         perform_docking = KubernetesPodOperator(
             task_id='perform_docking',
             full_pod_spec=full_pod_spec,
-            cmds=['/autodock/scripts/2_docking.sh'],
-            arguments=['{{ params.pdbid }}', batch_label, '1'],
+            cmds=['/autodock/scripts/dockingv2.sh'],
+            arguments=['{{ params.pdbid }}', batch_label],
             get_logs=True,
         )
 
