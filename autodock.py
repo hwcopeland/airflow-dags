@@ -98,7 +98,7 @@ def autodock():
             full_pod_spec=full_pod_spec,
             get_logs=True,
             cmds=['python3','/autodock/scripts/ligandprepv2.py'],
-            arguments=['{{ params.native_ligand }}', batch_label],
+            arguments=['{{ params.ligand_db }}', batch_label],
         )
 
         perform_docking = KubernetesPodOperator(
