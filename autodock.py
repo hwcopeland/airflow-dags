@@ -28,9 +28,9 @@ def autodock():
     )
     volume_mount_autodock = k8s.V1VolumeMount(mount_path=MOUNT_PATH_AUTODOCK, name=VOLUME_KEY_AUTODOCK)
 
-    jupyter_user_pvc = f"claim-{params['jupyter_user']}"
-    VOLUME_KEY_USER = f"volume-user-{params['jupyter_user']}"
-    MOUNT_PATH_USER = f"/home/{params['jupyter_user']}"
+    jupyter_user_pvc = f"claim-{{{{ params.jupyter_user }}}}"
+    VOLUME_KEY_USER = f"volume-user-{{{{ params.jupyter_user }}}}"
+    MOUNT_PATH_USER = f"/home/{{{{ params.jupyter_user }}}}"
 
     volume_user = k8s.V1Volume(
         name=VOLUME_KEY_USER,
@@ -98,10 +98,11 @@ def autodock():
             get_logs=True,
             cmds=['python3', '/autodock/scripts/ligandprepv2.py'],
             arguments=[
-                f"{MOUNT_PATH_AUTODOCK}/{{{{ ti.xcom_pull(task_ids='get_batch_labels')[ti.map_index] }}}}.sdf",
+                '{{ ti.xcom_pull(task_ids="get_batch_labels")[ti.map_index] }}.sdf',
                 f"{MOUNT_PATH_AUTODOCK}/output",
                 '--format', 'pdb'
             ],
+            env_vars={'MOUNT_PATH_AUTODOCK': MOUNT_PATH_AUTODOCK},
             is_delete_operator_pod=True,
         )
 
