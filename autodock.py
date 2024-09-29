@@ -67,7 +67,7 @@ def autodock():
         get_logs=True,
         retries=3,
         retry_delay=timedelta(minutes=5),
-        is_delete_operator_pod=False,
+        is_delete_operator_pod=True,
     )
 
     prepare_receptor = KubernetesPodOperator(
@@ -76,7 +76,7 @@ def autodock():
         cmds=['python3','/autodock/scripts/proteinprepv2.py','--protein_id', '{{ params.pdbid }}','--ligand_id','{{ params.native_ligand }}'],
         retries=3,
         retry_delay=timedelta(minutes=5),
-        is_delete_operator_pod=False,
+        is_delete_operator_pod=True,
     )
 
     split_sdf = KubernetesPodOperator(
@@ -87,7 +87,7 @@ def autodock():
         do_xcom_push=True,
         retries=3,
         retry_delay=timedelta(minutes=5),
-        is_delete_operator_pod=False,
+        is_delete_operator_pod=True,
     )
 
     postprocessing = KubernetesPodOperator(
@@ -96,7 +96,7 @@ def autodock():
         cmds=['/autodock/scripts/3_post_processing.sh', '{{ params.pdbid }}', '{{ params.ligand_db }}'],
         retries=3,
         retry_delay=timedelta(minutes=5),
-        is_delete_operator_pod=False,
+        is_delete_operator_pod=True,
     )
 
     @task
@@ -116,8 +116,6 @@ def autodock():
                 '--format', 'pdb'                             # Optional flag
             ],
             is_delete_operator_pod=True,
-            retries=3,
-            retry_delay=timedelta(minutes=5),
         )
 
         perform_docking = KubernetesPodOperator(
@@ -126,9 +124,7 @@ def autodock():
             cmds=['python3','/autodock/scripts/dockingv2.sh'],
             arguments=['{{ params.pdbid }}', batch_label],  # Use Python variable directly
             get_logs=True,
-            retries=3,
-            retry_delay=timedelta(minutes=5),
-            is_delete_operator_pod=False,
+            is_delete_operator_pod=True,
         )
 
         # Define task dependencies within the task group
