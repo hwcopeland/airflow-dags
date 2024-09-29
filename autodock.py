@@ -76,9 +76,10 @@ def autodock():
     split_sdf = KubernetesPodOperator(
         task_id='split_sdf',
         full_pod_spec=full_pod_spec,
-        cmds=['/bin/sh', '-c'],
+        cmds=['python3'],
         arguments=['/autodock/scripts/split_sdf.sh {{ params.ligands_chunk_size }} {{ params.ligand_db }} > /airflow/xcom/return.json'],
         do_xcom_push=True,
+        is_delete_operator_pod=False
     )
 
     postprocessing = KubernetesPodOperator(
