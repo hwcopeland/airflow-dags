@@ -3,7 +3,7 @@ from airflow.decorators import dag, task, task_group
 from airflow.providers.cncf.kubernetes.operators.kubernetes_pod import KubernetesPodOperator
 from airflow.configuration import conf
 from kubernetes.client import models as k8s
-from datetime import datetime
+from datetime import datetime, timedelta
 
 IMAGE_NAME = 'hwcopeland/auto-docker:latest'
 PVC_NAME = 'pvc-autodock'
@@ -37,7 +37,7 @@ def autodock():
     # Mount the Jupyter user's PVC (from the same namespace)
     volume_user = k8s.V1Volume(
         name=VOLUME_KEY_USER,
-        persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(claim_name=jupyter_user_pvc),  # Remove claim_namespace
+        persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(claim_name=jupyter_user_pvc),
     )
     volume_mount_user = k8s.V1VolumeMount(mount_path=MOUNT_PATH_USER, name=VOLUME_KEY_USER)
 
@@ -63,14 +63,20 @@ def autodock():
         name='copy-ligand-db',
         volumes=[volume_autodock, volume_user],
         volume_mounts=[volume_mount_autodock, volume_mount_user],
-        namespace=namespace,  # Ensure this pod runs in the correct namespace
+        namespace=namespace,
         get_logs=True,
+        retries=3,
+        retry_delay=timedelta(minutes=5),
+        is_delete_operator_pod=False,
     )
 
     prepare_receptor = KubernetesPodOperator(
         task_id='prepare_receptor',
         full_pod_spec=full_pod_spec,
         cmds=['python3','/autodock/scripts/proteinprepv2.py','--protein_id', '{{ params.pdbid }}','--ligand_id','{{ params.native_ligand }}'],
+        retries=3,
+        retry_delay=timedelta(minutes=5),
+        is_delete_operator_pod=False,
     )
 
     split_sdf = KubernetesPodOperator(
@@ -79,12 +85,18 @@ def autodock():
         cmds=['/bin/sh', '-c'],
         arguments=['/autodock/scripts/split_sdf.sh {{ params.ligands_chunk_size }} {{ params.ligand_db }} > /airflow/xcom/return.json'],
         do_xcom_push=True,
+        retries=3,
+        retry_delay=timedelta(minutes=5),
+        is_delete_operator_pod=False,
     )
 
     postprocessing = KubernetesPodOperator(
         task_id='postprocessing',
         full_pod_spec=full_pod_spec,
         cmds=['/autodock/scripts/3_post_processing.sh', '{{ params.pdbid }}', '{{ params.ligand_db }}'],
+        retries=3,
+        retry_delay=timedelta(minutes=5),
+        is_delete_operator_pod=False,
     )
 
     @task
@@ -103,25 +115,35 @@ def autodock():
                 f"{MOUNT_PATH_AUTODOCK}/output",                     # Positional argument for output_dir
                 '--format', 'pdb'                                     # Optional flag
             ],
-            is_delete_operator_pod=True,
+            is_delete_operator_pod=True,  # Set based on your preference
+            retries=3,
+            retry_delay=timedelta(minutes=5),
         )
 
         perform_docking = KubernetesPodOperator(
             task_id='perform_docking',
             full_pod_spec=full_pod_spec,
             cmds=['python3','/autodock/scripts/dockingv2.sh'],
-            arguments=['{{ params.pdbid }}', batch_label], #This needs to be fixed <<<<<<<<<<< here here! <<<<<<<<<<<<<<<<<<<<<<<<< please fix me! <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<FIX!!!
+            arguments=['{{ params.pdbid }}', '{{ batch_label }}'],    # Ensure batch_label is templated correctly
             get_logs=True,
+            retries=3,
+            retry_delay=timedelta(minutes=5),
+            is_delete_operator_pod=False,
         )
 
-        [prepare_ligands] >> perform_docking
+        # Define task dependencies within the task group
+        prepare_ligands >> perform_docking
 
+    # Define task dependencies
     copy_ligand_db >> prepare_receptor >> split_sdf
 
+    # Generate batch labels based on split_sdf output
     batch_labels = get_batch_labels('{{ params.ligand_db }}', split_sdf.output)
+    
+    # Expand the docking task group for each batch_label
     docking_tasks = docking.expand(batch_label=batch_labels)
 
+    # Define final dependency
     docking_tasks >> postprocessing
-
 
 autodock()
