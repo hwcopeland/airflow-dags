@@ -103,7 +103,7 @@ def autodock():
             '--output_dir', f"{MOUNT_PATH_AUTODOCK}/output",            # Directory where output should be saved
             '--format', 'pdb'                                        # Output format, e.g., 'pdbqt'
             ],
-            is_delete_operator_pod=False,
+            is_delete_operator_pod=True,
         )
 
         perform_docking = KubernetesPodOperator(
