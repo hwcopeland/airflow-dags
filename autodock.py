@@ -97,8 +97,12 @@ def autodock():
             task_id='prepare_ligands',
             full_pod_spec=full_pod_spec,
             get_logs=True,
-            cmds=['python3','/autodock/scripts/ligandprepv2.py'],
-            arguments= [split_sdf.output , batch_label],
+            cmds=['python3', '/autodock/scripts/ligandprepv2.py'],
+            arguments=[
+            '--sdf_file', f"{MOUNT_PATH_AUTODOCK}/{split_sdf.output}",  # Path to the input SDF file
+            '--output_dir', f"{MOUNT_PATH_AUTODOCK}/output",            # Directory where output should be saved
+            '--format', 'pdbqt'                                        # Output format, e.g., 'pdbqt'
+            ],
             is_delete_operator_pod=False,
         )
 
