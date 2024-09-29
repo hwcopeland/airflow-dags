@@ -111,11 +111,11 @@ def autodock():
             get_logs=True,
             cmds=['python3', '/autodock/scripts/ligandprepv2.py'],
             arguments=[
-                f"{MOUNT_PATH_AUTODOCK}/{{{{ batch_label }}}}.sdf",  # Positional argument for sdf_file
-                f"{MOUNT_PATH_AUTODOCK}/output",                     # Positional argument for output_dir
-                '--format', 'pdb'                                     # Optional flag
+                f"{MOUNT_PATH_AUTODOCK}/{batch_label}.sdf",  # Positional argument for sdf_file
+                f"{MOUNT_PATH_AUTODOCK}/output",             # Positional argument for output_dir
+                '--format', 'pdb'                             # Optional flag
             ],
-            is_delete_operator_pod=True,  # Set based on your preference
+            is_delete_operator_pod=True,
             retries=3,
             retry_delay=timedelta(minutes=5),
         )
@@ -124,7 +124,7 @@ def autodock():
             task_id='perform_docking',
             full_pod_spec=full_pod_spec,
             cmds=['python3','/autodock/scripts/dockingv2.sh'],
-            arguments=['{{ params.pdbid }}', '{{ batch_label }}'],    # Ensure batch_label is templated correctly
+            arguments=['{{ params.pdbid }}', batch_label],  # Use Python variable directly
             get_logs=True,
             retries=3,
             retry_delay=timedelta(minutes=5),
