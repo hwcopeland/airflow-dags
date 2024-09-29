@@ -79,7 +79,6 @@ def autodock():
         cmds=['/bin/sh', '-c'],
         arguments=['/autodock/scripts/split_sdf.sh {{ params.ligands_chunk_size }} {{ params.ligand_db }} > /airflow/xcom/return.json'],
         do_xcom_push=True,
-        is_delete_operator_pod=False
     )
 
     postprocessing = KubernetesPodOperator(
@@ -100,6 +99,7 @@ def autodock():
             get_logs=True,
             cmds=['python3','/autodock/scripts/ligandprepv2.py'],
             arguments= [split_sdf.output , batch_label],
+            is_delete_operator_pod=False,
         )
 
         perform_docking = KubernetesPodOperator(
