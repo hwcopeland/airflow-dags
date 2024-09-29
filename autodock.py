@@ -99,9 +99,9 @@ def autodock():
             get_logs=True,
             cmds=['python3', '/autodock/scripts/ligandprepv2.py'],
             arguments=[
-            '--sdf_file', f"{MOUNT_PATH_AUTODOCK}/{split_sdf.output}",  # Path to the input SDF file
-            '--output_dir', f"{MOUNT_PATH_AUTODOCK}/output",            # Directory where output should be saved
-            '--format', 'pdb'                                        # Output format, e.g., 'pdbqt'
+                f"{MOUNT_PATH_AUTODOCK}/{{{{ batch_label }}}}.sdf",  # Positional argument for sdf_file
+                f"{MOUNT_PATH_AUTODOCK}/output",                     # Positional argument for output_dir
+                '--format', 'pdb'                                     # Optional flag
             ],
             is_delete_operator_pod=True,
         )
