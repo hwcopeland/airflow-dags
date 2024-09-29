@@ -87,18 +87,18 @@ def autodock():
     )
 
     @task
-    def get_batch_labels(n: int):
-        return [f'{{{{ params.ligand_db }}}}_batch{i}' for i in range(n + 1)]
+    def get_batch_labels(batch_count: int, **context):
+        return [f"{{{{ params.ligand_db }}}}_batch{i}" for i in range(batch_count + 1)]
 
     @task_group
-    def docking(batch_label: str):
+    def docking(batch_label):
         prepare_ligands = KubernetesPodOperator(
             task_id='prepare_ligands',
             full_pod_spec=full_pod_spec,
             get_logs=True,
             cmds=['python3', '/autodock/scripts/ligandprepv2.py'],
             arguments=[
-                f"{MOUNT_PATH_AUTODOCK}/{batch_label}.sdf",
+                f"{MOUNT_PATH_AUTODOCK}/{{{{ ti.xcom_pull(task_ids='get_batch_labels')[ti.map_index] }}}}.sdf",
                 f"{MOUNT_PATH_AUTODOCK}/output",
                 '--format', 'pdb'
             ],
