@@ -43,7 +43,7 @@ def autodock():
     # Debugging Task: List Files in Source PVC
     debug_list_files = KubernetesPodOperator(
         task_id='debug_list_files',
-        image=CUSTOM_IMAGE_NAME,  # Use custom image with higher ulimit
+        image=IMAGE_NAME,  # Use custom image with higher ulimit
         cmds=['/bin/sh', '-c'],
         arguments=['ls -la /home/jovyan/'],
         name='debug-list-files',
@@ -59,7 +59,7 @@ def autodock():
     # Debugging Task: List Files in Destination PVC
     debug_list_dest = KubernetesPodOperator(
         task_id='debug_list_dest',
-        image=CUSTOM_IMAGE_NAME,  # Use custom image with higher ulimit
+        image=IMAGE_NAME,  # Use custom image with higher ulimit
         cmds=['/bin/sh', '-c'],
         arguments=['ls -la /data/'],
         name='debug-list-dest',
@@ -75,7 +75,7 @@ def autodock():
     # Task: Copy Ligand DB from User PVC to Autodock PVC
     copy_ligand_db = KubernetesPodOperator(
         task_id='copy_ligand_db',
-        image=CUSTOM_IMAGE_NAME,  # Use custom image with higher ulimit
+        image=IMAGE_NAME,  # Use custom image with higher ulimit
         cmds=['/bin/sh', '-c'],
         arguments=[
             f'cp {MOUNT_PATH_USER}/{{{{ params.ligand_db }}}}.sdf {MOUNT_PATH_AUTODOCK}/{{{{ params.ligand_db }}}}.sdf'
