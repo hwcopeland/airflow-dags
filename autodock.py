@@ -22,14 +22,12 @@ namespace = conf.get('kubernetes_executor', 'NAMESPACE')
 
 @dag(start_date=datetime(2021, 1, 1), schedule=None, catchup=False, params=params)
 def autodock():
-    # Define Volume for Autodock PVC
     volume_autodock = k8s.V1Volume(
         name=VOLUME_KEY_AUTODOCK,
         persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(claim_name=PVC_NAME),
     )
     volume_mount_autodock = k8s.V1VolumeMount(mount_path=MOUNT_PATH_AUTODOCK, name=VOLUME_KEY_AUTODOCK)
 
-    # Define Volume for User PVC
     jupyter_user_pvc = f"claim-{{{{ params.jupyter_user }}}}"
     VOLUME_KEY_USER = f"volume-user-{{{{ params.jupyter_user }}}}"
     MOUNT_PATH_USER = f"/home/{{{{ params.jupyter_user }}}}"
@@ -40,42 +38,20 @@ def autodock():
     )
     volume_mount_user = k8s.V1VolumeMount(mount_path=MOUNT_PATH_USER, name=VOLUME_KEY_USER)
 
-    # Debugging Task: List Files in Source PVC
-    debug_list_files = KubernetesPodOperator(
-        task_id='debug_list_files',
-        image=IMAGE_NAME,  # Use custom image with higher ulimit
-        cmds=['/bin/sh', '-c'],
-        arguments=['ls -la /home/jovyan/'],
-        name='debug-list-files',
-        volumes=[volume_user],
-        volume_mounts=[volume_mount_user],
-        namespace=namespace,
-        get_logs=True,
-        retries=1,
-        retry_delay=timedelta(minutes=1),
-        is_delete_operator_pod=True,
+    container = k8s.V1Container(
+        name='autodock-container',
+        image=IMAGE_NAME,
+        working_dir=MOUNT_PATH_AUTODOCK,
+        volume_mounts=[volume_mount_autodock, volume_mount_user],
+        image_pull_policy='Always',
     )
 
-    # Debugging Task: List Files in Destination PVC
-    debug_list_dest = KubernetesPodOperator(
-        task_id='debug_list_dest',
-        image=IMAGE_NAME,  # Use custom image with higher ulimit
-        cmds=['/bin/sh', '-c'],
-        arguments=['ls -la /data/'],
-        name='debug-list-dest',
-        volumes=[volume_autodock],
-        volume_mounts=[volume_mount_autodock],
-        namespace=namespace,
-        get_logs=True,
-        retries=1,
-        retry_delay=timedelta(minutes=1),
-        is_delete_operator_pod=True,
-    )
+    pod_spec = k8s.V1PodSpec(containers=[container], volumes=[volume_autodock, volume_user])
+    full_pod_spec = k8s.V1Pod(spec=pod_spec)
 
-    # Task: Copy Ligand DB from User PVC to Autodock PVC
     copy_ligand_db = KubernetesPodOperator(
         task_id='copy_ligand_db',
-        image=IMAGE_NAME,  # Use custom image with higher ulimit
+        image='alpine',
         cmds=['/bin/sh', '-c'],
         arguments=[
             f'cp {MOUNT_PATH_USER}/{{{{ params.ligand_db }}}}.sdf {MOUNT_PATH_AUTODOCK}/{{{{ params.ligand_db }}}}.sdf'
