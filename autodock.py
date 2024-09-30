@@ -88,7 +88,9 @@ def autodock():
 
     @task
     def get_batch_labels(batch_count: int, **context):
-        return [f"{{{{ params.ligand_db }}}}_batch{i}" for i in range(batch_count + 1)]
+        ligand_db = context['params'].get('ligand_db')
+        return [f"{ligand_db}_batch{i}" for i in range(batch_count + 1)] #maybe this will work?
+
 
     @task_group
     def docking(batch_label):
