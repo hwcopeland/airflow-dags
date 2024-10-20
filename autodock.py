@@ -110,12 +110,12 @@ def autodock():
         perform_docking = KubernetesPodOperator(
             task_id='perform_docking',
             full_pod_spec=full_pod_spec,
-            cmds=['python3','/autodock/scripts/dockingv2.py'],
-            arguments=['{{ params.pdbid }}', '{{ ti.xcom_pull(task_ids="get_batch_labels")[ti.map_index] }}'],
-            get_logs=True,
-            is_delete_operator_pod=False,
             cmds=['/bin/sh', '-c'],
-            arguments=['your-main-command || sleep 3600']
+            arguments=[
+                'python3 /autodock/scripts/dockingv2.py {{ params.pdbid }} {{ ti.xcom_pull(task_ids="get_batch_labels")[ti.map_index] }} || echo "Command failed, keeping the pod alive for debugging"; sleep 3600'
+            ],
+            get_logs=True,
+            is_delete_operator_pod=False,  # Keep the pod after task completion
         )
 
         prepare_ligands >> perform_docking
