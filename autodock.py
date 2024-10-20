@@ -111,7 +111,7 @@ def autodock():
         perform_docking = KubernetesPodOperator(
             task_id='perform_docking',
             full_pod_spec=full_pod_spec,
-            cmds=['python3','/autodock/scripts/dockingv2.sh'],
+            cmds=['python3','/autodock/scripts/dockingv2.py'],
             arguments=['{{ params.pdbid }}', '{{ ti.xcom_pull(task_ids="get_batch_labels")[ti.map_index] }}'],
             get_logs=True,
             is_delete_operator_pod=True,
