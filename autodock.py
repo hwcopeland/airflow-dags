@@ -24,7 +24,7 @@ namespace = conf.get('kubernetes_executor', 'NAMESPACE')
 def autodock():
     volume_autodock = k8s.V1Volume(
         name=VOLUME_KEY_AUTODOCK,
-        empty_dir=k8s.V1EmptyDirVolumeSource(),
+        persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(claim_name=PVC_NAME),
     )
     volume_mount_autodock = k8s.V1VolumeMount(mount_path=MOUNT_PATH_AUTODOCK, name=VOLUME_KEY_AUTODOCK)
 
@@ -100,7 +100,7 @@ def autodock():
             get_logs=True,
             cmds=['python3', '/autodock/scripts/ligandprepv2.py'],
             arguments=[
-                f"{MOUNT_PATH_AUTODOCK}/{{{{ ti.xcom_pull(task_ids='get_batch_labels')[ti.map_index] }}}}.sdf",
+                '{{ ti.xcom_pull(task_ids='get_batch_labels')[ti.map_index] }}.sdf',
                 f"{MOUNT_PATH_AUTODOCK}/{{{{ ti.xcom_pull(task_ids='get_batch_labels')[ti.map_index] }}}}/output",
                 '--format', 'pdbqt'
             ],
