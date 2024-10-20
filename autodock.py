@@ -113,7 +113,7 @@ def autodock():
             cmds=['python3','/autodock/scripts/dockingv2.py'],
             arguments=['{{ params.pdbid }}', '{{ ti.xcom_pull(task_ids="get_batch_labels")[ti.map_index] }}'],
             get_logs=True,
-            is_delete_operator_pod=True,
+            is_delete_operator_pod=False,
         )
 
         prepare_ligands >> perform_docking
