@@ -102,7 +102,7 @@ def autodock():
             arguments=[
                 '{{ ti.xcom_pull(task_ids="get_batch_labels")[ti.map_index] }}.sdf',
                 f"{MOUNT_PATH_AUTODOCK}/{{{{ ti.xcom_pull(task_ids='get_batch_labels')[ti.map_index] }}}}/output",
-                '--format', 'pdbqt'
+                '--format', 'pdb'
             ],
             env_vars={'MOUNT_PATH_AUTODOCK': MOUNT_PATH_AUTODOCK},
             is_delete_operator_pod=True,
