@@ -114,6 +114,8 @@ def autodock():
             arguments=['{{ params.pdbid }}', '{{ ti.xcom_pull(task_ids="get_batch_labels")[ti.map_index] }}'],
             get_logs=True,
             is_delete_operator_pod=False,
+            cmds=['/bin/sh', '-c'],
+            arguments=['your-main-command || sleep 3600']
         )
 
         prepare_ligands >> perform_docking
