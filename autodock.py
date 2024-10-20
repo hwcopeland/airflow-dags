@@ -100,14 +100,13 @@ def autodock():
             get_logs=True,
             cmds=['python3', '/autodock/scripts/ligandprepv2.py'],
             arguments=[
-                '{{ ti.xcom_pull(task_ids="get_batch_labels")[ti.map_index] }}.sdf',
-                f"{MOUNT_PATH_AUTODOCK}/output",
-                '--format', 'pdb'
+                f"{MOUNT_PATH_AUTODOCK}/{{{{ ti.xcom_pull(task_ids='get_batch_labels')[ti.map_index] }}}}.sdf",
+                f"{MOUNT_PATH_AUTODOCK}/{{{{ ti.xcom_pull(task_ids='get_batch_labels')[ti.map_index] }}}}/output",
+                '--format', 'pdbqt'
             ],
             env_vars={'MOUNT_PATH_AUTODOCK': MOUNT_PATH_AUTODOCK},
             is_delete_operator_pod=True,
         )
-
         perform_docking = KubernetesPodOperator(
             task_id='perform_docking',
             full_pod_spec=full_pod_spec,
