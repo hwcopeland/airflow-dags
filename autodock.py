@@ -24,7 +24,7 @@ namespace = conf.get('kubernetes_executor', 'NAMESPACE')
 def autodock():
     volume_autodock = k8s.V1Volume(
         name=VOLUME_KEY_AUTODOCK,
-        persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(claim_name=PVC_NAME),
+        empty_dir=k8s.V1EmptyDirVolumeSource(),
     )
     volume_mount_autodock = k8s.V1VolumeMount(mount_path=MOUNT_PATH_AUTODOCK, name=VOLUME_KEY_AUTODOCK)
 
