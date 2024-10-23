@@ -5,7 +5,7 @@ from airflow.configuration import conf
 from kubernetes.client import models as k8s
 from datetime import datetime, timedelta
 
-IMAGE_NAME = 'hwcopeland/auto-docker:latest'
+IMAGE_NAME = 'hwcopeland/autodocker-vina:latest'
 PVC_NAME = 'pvc-autodock'
 MOUNT_PATH_AUTODOCK = '/data'
 VOLUME_KEY_AUTODOCK = 'volume-autodock'
