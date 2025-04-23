@@ -12,11 +12,11 @@ MOUNT_PATH_AUTODOCK = '/data'
 VOLUME_KEY_AUTODOCK = 'volume-autodock'
 
 params = {
-    'pdbid': '8DZ2',
-    'ligand_db': 'similar_compounds',
-    'jupyter_user': 'hwcopeland',
-    'native_ligand': '4WI',
-    'ligands_chunk_size': 10,
+    'pdbid': '6w35',
+    'ligand_db': 'chemblntd_all',
+    'jupyter_user': 'jovyan',
+    'native_ligand': 'SKV',
+    'ligands_chunk_size': 1000,
 }
 
 namespace = conf.get('kubernetes_executor', 'NAMESPACE')
