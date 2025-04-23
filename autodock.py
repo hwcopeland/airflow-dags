@@ -1,9 +1,10 @@
 from airflow import DAG
 from airflow.decorators import dag, task, task_group
-from airflow.providers.cncf.kubernetes.operators.kubernetes_pod import KubernetesPodOperator
+from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
 from airflow.configuration import conf
 from kubernetes.client import models as k8s
 from datetime import datetime, timedelta
+from airflow.providers.cncf.kubernetes.utils.xcom_sidecar import add_xcom_sidecar
 
 IMAGE_NAME = 'hwcopeland/autodocker-vina:latest'
 PVC_NAME = 'pvc-autodock'
@@ -63,7 +64,7 @@ def autodock():
         get_logs=True,
         retries=3,
         retry_delay=timedelta(minutes=5),
-        is_delete_operator_pod=True,
+        on_finish_action='delete_pod',
     )
 
     prepare_receptor = KubernetesPodOperator(
@@ -72,7 +73,7 @@ def autodock():
         cmds=['python3','/autodock/scripts/proteinprepv2.py','--protein_id', '{{ params.pdbid }}','--ligand_id','{{ params.native_ligand }}'],
         retries=3,
         retry_delay=timedelta(minutes=5),
-        is_delete_operator_pod=True,
+        on_finish_action='delete_pod',
     )
 
     split_sdf = KubernetesPodOperator(
@@ -83,7 +84,7 @@ def autodock():
         do_xcom_push=True,
         retries=3,
         retry_delay=timedelta(minutes=5),
-        is_delete_operator_pod=True,
+        on_finish_action='delete_pod',
     )
 
     @task
@@ -105,7 +106,7 @@ def autodock():
                 '--format', 'pdb'
             ],
             env_vars={'MOUNT_PATH_AUTODOCK': MOUNT_PATH_AUTODOCK},
-            is_delete_operator_pod=True,
+            on_finish_action='delete_pod',
         )
         perform_docking = KubernetesPodOperator(
             task_id='perform_docking',
@@ -115,7 +116,7 @@ def autodock():
                 'python3 /autodock/scripts/dockingv2.py {{ params.pdbid }} {{ ti.xcom_pull(task_ids="get_batch_labels")[ti.map_index] }}/output || echo "Command failed, keeping the pod alive for debugging"; sleep 3600'
             ],
             get_logs=True,
-            is_delete_operator_pod=True,  # Keep the pod after task completion
+            on_finish_action='keep_pod',
         )
 
         prepare_ligands >> perform_docking
@@ -126,14 +127,14 @@ def autodock():
         cmds=['/autodock/scripts/3_post_processing.sh', '{{ params.pdbid }}', '{{ params.ligand_db }}'],
         retries=3,
         retry_delay=timedelta(minutes=5),
-        is_delete_operator_pod=True,
+        on_finish_action='delete_pod',
     )
 
     copy_ligand_db >> prepare_receptor >> split_sdf
 
     batch_count = split_sdf.output
     batch_labels = get_batch_labels(batch_count)
-    
+
     docking_tasks = docking.expand(batch_label=batch_labels)
 
     docking_tasks >> postprocessing
