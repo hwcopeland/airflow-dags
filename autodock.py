@@ -112,9 +112,7 @@ def autodock():
             task_id='perform_docking',
             full_pod_spec=full_pod_spec,
             cmds=['/bin/sh', '-c'],
-            arguments=[
-                'python3 /autodock/scripts/dockingv2.py {{ params.pdbid }} {{ ti.xcom_pull(task_ids="get_batch_labels")[ti.map_index] }}/output || echo "Command failed, keeping the pod alive for debugging"; sleep 3600'
-            ],
+            arguments=['python3 /autodock/scripts/dockingv2.py {{ params.pdbid }} {{ ti.xcom_pull(task_ids="get_batch_labels")[ti.map_index] }}/output || (echo "Command failed, keeping the pod alive for debugging"; sleep 3600)'],
             get_logs=True,
             on_finish_action='delete_pod',
         )
