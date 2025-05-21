@@ -4,7 +4,6 @@ from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperato
 from airflow.configuration import conf
 from kubernetes.client import models as k8s
 from datetime import datetime, timedelta
-# from airflow.providers.cncf.kubernetes.utils.xcom_sidecar import add_xcom_sidecar # Not directly used in this modified DAG for add_xcom_sidecar
 
 IMAGE_NAME = 'hwcopeland/autodocker-vina:latest'
 PVC_NAME = 'pvc-autodock'
@@ -43,48 +42,82 @@ def autodock():
     )
     volume_mount_datashare = k8s.V1VolumeMount(mount_path=MOUNT_PATH_DATASHARE, name=VOLUME_KEY_DATASHARE)
 
-    resource_requirements = k8s.V1ResourceRequirements(
-        requests={
-            "cpu": "4",
-            "memory": "16Gi"
-        },
-        limits={
-            "cpu": "4",
-            "memory": "16Gi" 
-        }
-    )
-    
-    # Configure the base container with both volumes mounted
-    container = k8s.V1Container(
-        name='autodock-container',
-        image=IMAGE_NAME,
-        working_dir=MOUNT_PATH_AUTODOCK,
-        volume_mounts=[volume_mount_autodock, volume_mount_datashare], # Mount both volumes
-        image_pull_policy='Always',
-        resources=resource_requirements,
+    # Define the base pod override for all tasks that will run in their own pods
+    # This includes @task decorated Python functions and KubernetesPodOperators
+    base_pod_override = k8s.V1Pod(
+        spec=k8s.V1PodSpec(
+            containers=[
+                k8s.V1Container(
+                    name="base", # Important: "base" is the default container name for Airflow tasks in Kubernetes Executor
+                    image=IMAGE_NAME,
+                    working_dir=MOUNT_PATH_AUTODOCK,
+                    volume_mounts=[volume_mount_autodock, volume_mount_datashare],
+                    image_pull_policy='Always',
+                    resources=k8s.V1ResourceRequirements(
+                        requests={
+                            "cpu": "4",
+                            "memory": "16Gi"
+                        },
+                        limits={
+                            "cpu": "4",
+                            "memory": "16Gi"
+                        }
+                    )
+                )
+            ],
+            # Ensure volumes are also specified at the pod level for the override
+            volumes=[volume_autodock, volume_datashare]
+        )
     )
 
-    # Configure the base pod spec with both volumes
-    pod_spec = k8s.V1PodSpec(containers=[container], volumes=[volume_autodock, volume_datashare])
-    full_pod_spec = k8s.V1Pod(spec=pod_spec)
+    # For KubernetesPodOperator, `full_pod_spec` will still be used, but we'll include
+    # the resources directly in its container definition, matching the override approach
+    # to maintain consistency and clarity.
+
+    # KubernetesPodOperator tasks will directly use the desired image and resources
+    # within their full_pod_spec. The 'pod_override' is primarily for PythonOperator/BashOperator tasks.
+    # However, for consistency in resource allocation, we define it here for KPO too.
+    kpo_container_with_resources = k8s.V1Container(
+        name='autodock-container', # This can be any name, but matches the context
+        image=IMAGE_NAME,
+        working_dir=MOUNT_PATH_AUTODOCK,
+        volume_mounts=[volume_mount_autodock, volume_mount_datashare],
+        image_pull_policy='Always',
+        resources=k8s.V1ResourceRequirements(
+            requests={
+                "cpu": "4",
+                "memory": "16Gi"
+            },
+            limits={
+                "cpu": "4",
+                "memory": "16Gi"
+            }
+        )
+    )
+    kpo_full_pod_spec = k8s.V1Pod(
+        spec=k8s.V1PodSpec(
+            containers=[kpo_container_with_resources],
+            volumes=[volume_autodock, volume_datashare]
+        )
+    )
 
     # Removed the copy_ligand_db task as the database is now directly mounted.
 
     prepare_receptor = KubernetesPodOperator(
         task_id='prepare_receptor',
-        full_pod_spec=full_pod_spec,
+        full_pod_spec=kpo_full_pod_spec, # Use the KPO specific full_pod_spec
         cmds=['python3','/autodock/scripts/proteinprepv2.py','--protein_id', '{{ params.pdbid }}','--ligand_id','{{ params.native_ligand }}'],
         retries=3,
         retry_delay=timedelta(minutes=5),
         on_finish_action='delete_pod',
-        namespace=namespace, # Ensure namespace is set for all PodOperators
+        namespace=namespace,
+        # No need for executor_config here as full_pod_spec handles everything for KPO
     )
 
     split_sdf = KubernetesPodOperator(
         task_id='split_sdf',
-        full_pod_spec=full_pod_spec,
+        full_pod_spec=kpo_full_pod_spec, # Use the KPO specific full_pod_spec
         cmds=['/bin/sh', '-c'],
-        # The ligand database is now accessed from the datashare mount path
         arguments=[f'/autodock/scripts/split_sdf.sh {{ params.ligands_chunk_size }} {MOUNT_PATH_DATASHARE}/{{{{ params.ligand_db }}}}.sdf > /airflow/xcom/return.json'],
         do_xcom_push=True,
         retries=3,
@@ -93,8 +126,9 @@ def autodock():
         namespace=namespace,
     )
 
-    @task
+    @task(executor_config={"pod_override": base_pod_override}) # Apply override to decorated task
     def get_batch_labels(batch_count: int, **context):
+        # This task will run in a pod with the specified image and resources
         ligand_db = context['params'].get('ligand_db')
         return [f"{ligand_db}_batch{i}" for i in range(batch_count + 1)]
 
@@ -102,12 +136,11 @@ def autodock():
     def docking(batch_label):
         prepare_ligands = KubernetesPodOperator(
             task_id='prepare_ligands',
-            full_pod_spec=full_pod_spec,
+            full_pod_spec=kpo_full_pod_spec, # Use the KPO specific full_pod_spec
             get_logs=True,
             cmds=['python3', '/autodock/scripts/ligandprepv2.py'],
             arguments=[
-                # The input SDF path needs to reference the datashare mount
-                f"{MOUNT_PATH_DATASHARE}/{{{{ ti.xcom_pull(task_ids='split_sdf')[ti.map_index] }}}}", # Assuming split_sdf returns actual file paths
+                f"{MOUNT_PATH_DATASHARE}/{{{{ ti.xcom_pull(task_ids='split_sdf')[ti.map_index] }}}}",
                 f"{MOUNT_PATH_AUTODOCK}/{{{{ ti.xcom_pull(task_ids='get_batch_labels')[ti.map_index] }}}}/output",
                 '--format', 'pdb'
             ],
@@ -117,7 +150,7 @@ def autodock():
         )
         perform_docking = KubernetesPodOperator(
             task_id='perform_docking',
-            full_pod_spec=full_pod_spec,
+            full_pod_spec=kpo_full_pod_spec, # Use the KPO specific full_pod_spec
             cmds=['/bin/sh', '-c'],
             arguments=[f'python3 /autodock/scripts/dockingv2.py {{ params.pdbid }} {{ ti.xcom_pull(task_ids="get_batch_labels")[ti.map_index] }}/output || (echo "Command failed, keeping the pod alive for debugging"; sleep 3600)'],
             get_logs=True,
@@ -129,7 +162,7 @@ def autodock():
 
     postprocessing = KubernetesPodOperator(
         task_id='postprocessing',
-        full_pod_spec=full_pod_spec,
+        full_pod_spec=kpo_full_pod_spec, # Use the KPO specific full_pod_spec
         cmds=['/autodock/scripts/3_post_processing.sh', '{{ params.pdbid }}', '{{ params.ligand_db }}'],
         retries=3,
         retry_delay=timedelta(minutes=5),
@@ -137,11 +170,11 @@ def autodock():
         namespace=namespace,
     )
 
-    # Task dependencies: No copy_ligand_db needed anymore
+    # Task dependencies
     prepare_receptor >> split_sdf
 
     batch_count = split_sdf.output
-    batch_labels = get_batch_labels(batch_count)
+    batch_labels = get_batch_labels(batch_count) # This task will use the pod_override
 
     docking_tasks = docking.expand(batch_label=batch_labels)
 
