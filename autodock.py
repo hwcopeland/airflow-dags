@@ -61,7 +61,7 @@ def autodock():
         working_dir=MOUNT_PATH_AUTODOCK,
         volume_mounts=[volume_mount_autodock, volume_mount_datashare], # Mount both volumes
         image_pull_policy='Always',
-        resource_requirements,
+        resources=resource_requirements,
     )
 
     # Configure the base pod spec with both volumes
