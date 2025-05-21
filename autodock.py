@@ -45,12 +45,12 @@ def autodock():
 
     resource_requirements = k8s.V1ResourceRequirements(
         requests={
-            "cpu": "500m",  # 0.5 CPU
-            "memory": "2Gi" # 2 Gigabytes of memory
+            "cpu": "4",
+            "memory": "16Gi"
         },
         limits={
-            "cpu": "1",    # 1 CPU
-            "memory": "4Gi" # 4 Gigabytes of memory
+            "cpu": "4",
+            "memory": "16Gi" 
         }
     )
     
