@@ -43,6 +43,17 @@ def autodock():
     )
     volume_mount_datashare = k8s.V1VolumeMount(mount_path=MOUNT_PATH_DATASHARE, name=VOLUME_KEY_DATASHARE)
 
+    resource_requirements = k8s.V1ResourceRequirements(
+        requests={
+            "cpu": "500m",  # 0.5 CPU
+            "memory": "2Gi" # 2 Gigabytes of memory
+        },
+        limits={
+            "cpu": "1",    # 1 CPU
+            "memory": "4Gi" # 4 Gigabytes of memory
+        }
+    )
+    
     # Configure the base container with both volumes mounted
     container = k8s.V1Container(
         name='autodock-container',
@@ -50,6 +61,7 @@ def autodock():
         working_dir=MOUNT_PATH_AUTODOCK,
         volume_mounts=[volume_mount_autodock, volume_mount_datashare], # Mount both volumes
         image_pull_policy='Always',
+        resource_requirements,
     )
 
     # Configure the base pod spec with both volumes
